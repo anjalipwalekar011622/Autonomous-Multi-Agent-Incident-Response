@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone  # Uses timezone-aware UTC datetime
 from typing import Dict, Any
 
 class ForensicsReportGenerator:
@@ -28,7 +28,7 @@ class ForensicsReportGenerator:
 
         report = {
             "incident_id": incident_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),  # FIXED: Replaced deprecated utcnow()
             "mitre_attack": mitre_info,
             "raw_evidence": raw_alert,
             "historical_context": {
