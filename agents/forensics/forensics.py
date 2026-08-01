@@ -22,15 +22,16 @@ class ForensicsAgent:
         # 2. Query ChromaDB for past incidents
         memory_results = self.memory.query_similar_incidents(event_summary)
 
-        # 3. Generate enriched Forensic Report with MITRE mapping
+        # 3. Generate baseline Forensic Report
         final_report = ForensicsReportGenerator.generate_report(raw_alert, memory_results)
 
-        # 4. Fallback / Enhancement: If MITRE mapping is defaulted, ask Ollama LLM dynamically
-        if final_report["mitre_attack"]["technique_id"] == "T1204":
-            print("[Forensics Agent] Standard dictionary match missing. Querying Ollama LLM for dynamic MITRE reasoning...")
-            llm_mitre = self._query_ollama_for_mitre(raw_alert)
-            if llm_mitre:
-                final_report["mitre_attack"] = llm_mitre
+        # 4. Dynamic AI Mapping: Query Ollama LLM for real-time MITRE ATT&CK reasoning
+        print("[Forensics Agent] Querying Ollama LLM for dynamic MITRE ATT&CK mapping...")
+        llm_mitre = self._query_ollama_for_mitre(raw_alert)
+        if llm_mitre:
+            final_report["mitre_attack"] = llm_mitre
+        else:
+            print("[Forensics Agent] Reverting to static dictionary / default mapping.")
 
         # 5. Save this incident into ChromaDB memory for future detection
         self.memory.store_incident(
@@ -38,7 +39,7 @@ class ForensicsAgent:
             summary=event_summary,
             metadata={
                 "severity": raw_alert.get("severity", "Medium"),
-                "technique_id": final_report["mitre_attack"]["technique_id"]
+                "technique_id": final_report["mitre_attack"].get("technique_id", "UNKNOWN")
             }
         )
 
@@ -51,7 +52,7 @@ class ForensicsAgent:
         prompt = f"""
         You are a cybersecurity Digital Forensics AI.
         Analyze this raw alert: {json.dumps(raw_alert)}
-        Return ONLY a JSON object mapping it to MITRE ATT&CK in this format:
+        Return ONLY a JSON object mapping it to official MITRE ATT&CK in this exact format:
         {{"tactic": "<Tactic>", "technique_id": "<Technique_ID>", "name": "<Technique_Name>"}}
         """
         try:
@@ -67,20 +68,28 @@ class ForensicsAgent:
             print(f"[Forensics Agent] Ollama query bypassed or failed: {e}")
         return None
 
+# --- LANGGRAPH NODE WRAPPER ---
+def forensics_node(state: dict) -> dict:
+    """
+    LangGraph Node Wrapper Function.
+    Anjali's Orchestrator will call this function inside the StateGraph.
+    """
+    agent = ForensicsAgent()
+    raw_alert = state.get("raw_alert", {})
+    
+    # Run forensic investigation
+    forensic_report = agent.analyze_incident(raw_alert)
+    
+    # Update state for LangGraph routing
+    state["forensic_report"] = forensic_report
+    state["current_step"] = "FORENSICS_COMPLETED"
+    return state
+
+
 if __name__ == "__main__":
     agent = ForensicsAgent()
     
-    # Test 1: Standard event (uses hardcoded fast-path)
-    sample_alert_known = {
-        "event": "Multiple Failed Logins",
-        "event_id": "4625",
-        "source_ip": "192.168.1.50",
-        "user": "Admin",
-        "severity": "High"
-    }
-    
-    # Test 2: Custom/Unknown event (triggers Ollama LLM reasoning)
-    sample_alert_unknown = {
+    sample_alert = {
         "event": "Custom Obfuscated Encoded PowerShell Execution",
         "event_id": "9999",
         "source_ip": "10.0.0.88",
@@ -88,10 +97,7 @@ if __name__ == "__main__":
         "severity": "Critical"
     }
 
-    print("--- RUNNING TEST 1 (Standard Dictionary Match) ---")
-    res1 = agent.analyze_incident(sample_alert_known)
-    print(res1["mitre_attack"])
-
-    print("\n--- RUNNING TEST 2 (Dynamic Ollama AI Reasoning) ---")
-    res2 = agent.analyze_incident(sample_alert_unknown)
-    print(res2["mitre_attack"])
+    print("--- RUNNING FORENSICS AGENT DIRECT TEST ---")
+    res = agent.analyze_incident(sample_alert)
+    print("\n--- EXTRACTED MITRE ATT&CK DATA ---")
+    print(res["mitre_attack"])
