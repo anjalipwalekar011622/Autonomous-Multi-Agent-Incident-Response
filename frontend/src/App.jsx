@@ -1,4 +1,6 @@
 import React from 'react';
+
+import "./styles/app.css";
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import Sidebar from './components/Sidebar';
