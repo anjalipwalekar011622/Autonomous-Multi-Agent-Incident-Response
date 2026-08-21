@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+// Align path with FastAPI endpoint
+const rawBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const BASE = rawBase.replace(/\/+$/, ''); 
+const API_BASE_URL = `${BASE}/api/v1/incident`; // Added /incident here
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -9,7 +13,7 @@ const client = axios.create({
 
 export const triggerIncident = async (incidentData) => {
   try {
-    const response = await client.post('/incident/trigger', incidentData);
+    const response = await client.post('/trigger', incidentData);
     return response.data;
   } catch (error) {
     console.error('API Error:', error);
@@ -17,9 +21,10 @@ export const triggerIncident = async (incidentData) => {
   }
 };
 
+
 export const checkHealth = async () => {
   try {
-    const response = await axios.get('http://localhost:8000/health', { timeout: 3000 });
+    const response = await axios.get('/health', { timeout: 3000 });
     return response.data;
   } catch (error) {
     console.error('Health check failed:', error);
