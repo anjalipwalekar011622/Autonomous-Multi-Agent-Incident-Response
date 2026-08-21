@@ -1,0 +1,516 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0a0e14;
+  --surface: #10151d;
+  --surface-raised: #151b25;
+  --border: #212a37;
+  --border-soft: #1a212c;
+  --text: #e7edf5;
+  --text-muted: #7c8b9c;
+  --text-faint: #4c5a6b;
+
+  --blue: #5b9dd9;
+  --amber: #f2a93b;
+  --teal: #35d0ba;
+  --rose: #ff6b6b;
+  --violet: #8b7fd6;
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(ellipse 120% 60% at 50% -10%, #0e1420 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+/* ---------------------------------------------------------------------- */
+/* App shell: Sidebar + Navbar + page content                             */
+/* ---------------------------------------------------------------------- */
+.appShell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.appMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.appContent {
+  flex: 1;
+  padding: 24px 32px 48px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Sidebar                                                                 */
+/* ---------------------------------------------------------------------- */
+.sidebar {
+  width: 216px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 20px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sidebarLogo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(155deg, rgba(91,157,217,0.18), rgba(139,127,214,0.10));
+  border: 1px solid var(--border);
+  color: var(--blue);
+}
+
+.sidebarBrandText {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sidebarBrandSub {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.sidebarLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sidebarLink:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.sidebarLinkActive {
+  background: rgba(91, 157, 217, 0.10);
+  color: var(--blue);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Navbar                                                                  */
+/* ---------------------------------------------------------------------- */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(10, 14, 20, 0.7);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.navTitle {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--teal);
+  background: rgba(53, 208, 186, 0.08);
+  border: 1px solid rgba(53, 208, 186, 0.25);
+  padding: 3px 9px 3px 7px;
+  border-radius: 100px;
+}
+
+.pulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: pulseRing 1.8s ease-out infinite;
+}
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(53, 208, 186, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(53, 208, 186, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(53, 208, 186, 0); }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Page header + buttons (reused across pages)                            */
+/* ---------------------------------------------------------------------- */
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.pageSubtitle {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnPrimary, .btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+}
+
+.btnPrimary {
+  background: linear-gradient(155deg, #5b9dd9, #4a86c4);
+  color: #06121e;
+}
+.btnPrimary:hover:not(:disabled) { transform: translateY(-1px); }
+.btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.btnGhost {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.btnGhost:hover { color: var(--text); border-color: #2c3a4c; }
+.btnGhost:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------------------------- */
+/* Stats grid                                                              */
+/* ---------------------------------------------------------------------- */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.statCard {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.statIconWrap {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statValue {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.statLabel { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+.statSub { font-size: 11px; font-family: var(--font-mono); color: var(--text-faint); }
+
+/* ---------------------------------------------------------------------- */
+/* Section heads                                                           */
+/* ---------------------------------------------------------------------- */
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.sectionHint {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------------- */
+/* ThreatCard (agent status)                                               */
+/* ---------------------------------------------------------------------- */
+.agentGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.threatCard {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.threatCardActive {
+  border-color: var(--agent-ring, var(--border));
+  box-shadow: 0 0 0 1px var(--agent-ring, transparent);
+}
+
+.threatIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.threatName {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.threatDesc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.threatFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.threatBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.threatTimestamp {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------------- */
+/* AgentLogs terminal                                                      */
+/* ---------------------------------------------------------------------- */
+.terminal {
+  background: #080b10;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.terminalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.terminalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.terminalDots { display: flex; gap: 5px; }
+.terminalDots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+
+.terminalBody {
+  height: 260px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.9;
+  scroll-behavior: smooth;
+}
+
+.terminalBody::-webkit-scrollbar { width: 8px; }
+.terminalBody::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+.terminalBody::-webkit-scrollbar-track { background: transparent; }
+
+.logLine {
+  display: flex;
+  gap: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.logTime { color: var(--text-faint); flex-shrink: 0; }
+.logLevel { flex-shrink: 0; font-weight: 600; width: 60px; }
+.logAgent { flex-shrink: 0; color: var(--text-muted); }
+.logMsg { color: var(--text); }
+
+.emptyLog {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 6px 0;
+}
+
+.cursor {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  background: var(--blue);
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.jumpBtn {
+  position: sticky;
+  bottom: 8px;
+  margin-left: auto;
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blue);
+  background: rgba(91, 157, 217, 0.1);
+  border: 1px solid rgba(91, 157, 217, 0.3);
+  padding: 4px 10px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Placeholder pages (Alerts / Reports / Timeline)                         */
+/* ---------------------------------------------------------------------- */
+.placeholder {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Responsive                                                              */
+/* ---------------------------------------------------------------------- */
+@media (max-width: 1180px) {
+  .statsGrid, .agentGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 860px) {
+  .appShell { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .sidebarBrand { display: none; }
+}
+
+@media (max-width: 640px) {
+  .appContent { padding: 16px 16px 32px; }
+  .statsGrid, .agentGrid { grid-template-columns: 1fr; }
+  .navbar { padding: 12px 16px; }
+}
