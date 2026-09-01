@@ -99,5 +99,6 @@ if __name__ == "__main__":
 
     print("--- RUNNING FORENSICS AGENT DIRECT TEST ---")
     res = agent.analyze_incident(sample_alert)
-    print("\n--- EXTRACTED MITRE ATT&CK DATA ---")
-    print(res["mitre_attack"])
+    
+    print("\n--- COMPLETE ENRICHED FORENSIC REPORT ---")
+    print(json.dumps(res, indent=2))  # Pretty prints the complete JSON output!
