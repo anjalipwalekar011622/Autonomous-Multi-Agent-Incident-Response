@@ -1,13 +1,18 @@
 import axios from 'axios';
 
-
-// Align path with FastAPI endpoint
-const rawBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const BASE = rawBase.replace(/\/+$/, ''); 
-const API_BASE_URL = `${BASE}/api/v1/incident`; // Added /incident here
+// Detects Codespaces environment dynamically and points to Port 8000
+const getBaseUrl = () => {
+  const host = window.location.hostname;
+  if (host.includes('app.github.dev')) {
+    // Replaces -5176 (or any frontend port) with -8000
+    const backendHost = host.replace(/-\d+\.app\.github\.dev/, '-8000.app.github.dev');
+    return `https://${backendHost}/api/v1/incident`;
+  }
+  return 'http://127.0.0.1:8000/api/v1/incident';
+};
 
 const client = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getBaseUrl(),
   timeout: 5000,
 });
 
@@ -17,17 +22,6 @@ export const triggerIncident = async (incidentData) => {
     return response.data;
   } catch (error) {
     console.error('API Error:', error);
-    throw error;
-  }
-};
-
-
-export const checkHealth = async () => {
-  try {
-    const response = await axios.get('/health', { timeout: 3000 });
-    return response.data;
-  } catch (error) {
-    console.error('Health check failed:', error);
     throw error;
   }
 };
