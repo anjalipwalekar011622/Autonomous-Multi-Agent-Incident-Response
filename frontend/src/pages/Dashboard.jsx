@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import ThreatCard from '../components/ThreatCard';
 import {
   Activity,
   Search,
@@ -11,7 +12,6 @@ import {
   Fingerprint,
 } from 'lucide-react';
 
-import ThreatCard from '../components/ThreatCard';
 import AgentLogs from '../components/AgentLogs';
 import { triggerIncident } from '../services/api';
 import '../styles/app.css';
