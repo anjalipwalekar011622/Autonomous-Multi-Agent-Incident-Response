@@ -19,6 +19,7 @@ class TestForensicsModule(unittest.TestCase):
 
     def test_forensics_agent_execution(self):
         """Test the end-to-end analyze_incident function."""
+
         sample_alert = {
             "event": "Suspicious PowerShell Execution",
             "event_id": "4688",
@@ -26,12 +27,42 @@ class TestForensicsModule(unittest.TestCase):
             "user": "System_Account",
             "severity": "Critical"
         }
-        
+
         report = self.agent.analyze_incident(sample_alert)
-        
+
+        # Common incident structure
         self.assertIn("incident_id", report)
-        self.assertEqual(report["investigation_status"], "COMPLETED")
-        self.assertIn("mitre_attack", report)
+        self.assertIn("investigation", report)
+        self.assertIn("memory", report)
+
+        # ForensicsAgent section
+        self.assertEqual(
+            report["investigation"]["agent"],
+            "ForensicsAgent"
+        )
+
+        self.assertEqual(
+            report["investigation"]["status"],
+            "COMPLETED"
+        )
+
+        # MITRE section
+        self.assertIn(
+            "mitre_attack",
+            report["investigation"]
+        )
+
+        # Historical context
+        self.assertIn(
+            "historical_context",
+            report["investigation"]
+        )
+
+        # Recommended action
+        self.assertIn(
+            "recommended_action",
+            report["investigation"]
+        )
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,39 +11,136 @@ class ForensicsAgent:
         self.ollama_url = "http://localhost:11434/api/generate"
 
     def analyze_incident(self, raw_alert: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Main entry point for LangGraph Orchestrator to trigger Forensics Analysis.
-        """
-        print(f"\n[Forensics Agent] Investigating alert: {raw_alert.get('event', 'Unknown Event')}")
+    
+        print(
+            f"\n[Forensics Agent] Investigating alert: "
+            f"{raw_alert.get('event', 'Unknown Event')}"
+        )
 
+        # ---------------------------------------------------------
         # 1. Summarize alert for vector search
-        event_summary = f"{raw_alert.get('event')} from source {raw_alert.get('source_ip', 'local')} user {raw_alert.get('user', 'unknown')}"
+        # ---------------------------------------------------------
+        event_summary = (
+            f"{raw_alert.get('event')} "
+            f"from source {raw_alert.get('source_ip', 'local')} "
+            f"user {raw_alert.get('user', 'unknown')}"
+        )
 
+        # ---------------------------------------------------------
         # 2. Query ChromaDB for past incidents
+        # ---------------------------------------------------------
         memory_results = self.memory.query_similar_incidents(event_summary)
 
-        # 3. Generate baseline Forensic Report
-        final_report = ForensicsReportGenerator.generate_report(raw_alert, memory_results)
+        # ---------------------------------------------------------
+        # 3. Generate existing forensic report
+        # ---------------------------------------------------------
+        final_report = ForensicsReportGenerator.generate_report(
+            raw_alert,
+            memory_results
+        )
 
-        # 4. Dynamic AI Mapping: Query Ollama LLM for real-time MITRE ATT&CK reasoning
-        print("[Forensics Agent] Querying Ollama LLM for dynamic MITRE ATT&CK mapping...")
+        # ---------------------------------------------------------
+        # 4. Dynamic AI Mapping using Ollama
+        # ---------------------------------------------------------
+        print(
+            "[Forensics Agent] Querying Ollama LLM "
+            "for dynamic MITRE ATT&CK mapping..."
+        )
+
         llm_mitre = self._query_ollama_for_mitre(raw_alert)
+
         if llm_mitre:
             final_report["mitre_attack"] = llm_mitre
         else:
-            print("[Forensics Agent] Reverting to static dictionary / default mapping.")
+            print(
+             "[Forensics Agent] Reverting to static dictionary / default mapping."
+            )
 
-        # 5. Save this incident into ChromaDB memory for future detection
+        # ---------------------------------------------------------
+        # 5. Store incident in ChromaDB
+        # ---------------------------------------------------------
         self.memory.store_incident(
             incident_id=final_report["incident_id"],
             summary=event_summary,
             metadata={
                 "severity": raw_alert.get("severity", "Medium"),
-                "technique_id": final_report["mitre_attack"].get("technique_id", "UNKNOWN")
+                "technique_id": final_report["mitre_attack"].get(
+                    "technique_id",
+                    "UNKNOWN"
+                )
             }
         )
 
-        return final_report
+        # ---------------------------------------------------------
+        # 6. Remove duplicate historical matches
+        # ---------------------------------------------------------
+        historical_context = final_report.get(
+            "historical_context",
+            {}
+        )
+
+        matches = historical_context.get("matches", [])
+
+        # Remove exact duplicate matches while preserving order
+        if isinstance(matches, list):
+            matches = list(dict.fromkeys(matches))
+
+        # ---------------------------------------------------------
+        # 7. Build COMMON INCIDENT JSON
+        # ---------------------------------------------------------
+        mitre = final_report.get("mitre_attack", {})
+
+        common_report = {
+            "incident_id": final_report["incident_id"],
+
+            "investigation": {
+                "agent": "ForensicsAgent",
+                "status": "COMPLETED",
+
+                "findings": [],
+
+                "evidence": [
+                    {
+                        "event": raw_alert.get("event"),
+                        "event_id": raw_alert.get("event_id"),
+                        "source_ip": raw_alert.get("source_ip"),
+                        "user": raw_alert.get("user"),
+                        "severity": raw_alert.get("severity")
+                    }
+                ],
+
+                "mitre_attack": {
+                    "tactic": mitre.get("tactic"),
+                    "technique_id": mitre.get("technique_id"),
+                    "technique_name": mitre.get("name"),
+                    "confidence": mitre.get("confidence"),
+                    "needs_review": mitre.get("confidence") is None
+                },
+
+                "historical_context": {
+                    "seen_before": historical_context.get(
+                        "seen_before",
+                        len(matches) > 0
+                    ),
+                    "matches": matches,
+                    "similarity": historical_context.get("similarity")
+                },
+
+                "attack_pattern": None,
+
+                "recommended_action": final_report.get(
+                    "recommended_action"
+                )
+            },
+
+            "memory": {
+                "stored": True,
+                "historical_retrieval_completed": True,
+                "vector_id": None
+            }
+        }
+
+        return common_report
 
     def _query_ollama_for_mitre(self, raw_alert: Dict[str, Any]) -> Dict[str, Any]:
         """
