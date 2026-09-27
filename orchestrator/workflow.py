@@ -8,14 +8,18 @@ from agents.mitigation.actions import run_action_executor
 
 
 def threat_hunter_node(state: IncidentState) -> IncidentState:
-    state["threat_hunter_output"] = MOCK_INCIDENT_STATE["threat_hunter_output"]
-    state["status"] = "investigating"
+    """Placeholder for real Threat Hunter Agent — source/event/threat already
+    populated in mock_data for now."""
+    state["incident"]["status"] = "INVESTIGATING"
+    state["agent_trace"].append("ThreatHunterAgent: threat detected (stub)")
     return state
 
 
 def forensics_node(state: IncidentState) -> IncidentState:
-    state["forensics_output"] = MOCK_INCIDENT_STATE["forensics_output"]
-    state["status"] = "mitigation_planning"
+    """Placeholder for real Forensics Agent — investigation/memory already
+    populated in mock_data for now."""
+    state["incident"]["status"] = "MITIGATION_PLANNING"
+    state["agent_trace"].append("ForensicsAgent: investigation complete (stub)")
     return state
 
 
@@ -26,7 +30,7 @@ def build_workflow():
     graph.add_node("forensics", forensics_node)
     graph.add_node("mitigation", run_mitigation_agent)
     graph.add_node("hitl_approval", hitl_approval_node)
-    graph.add_node("action_executor", run_action_executor)   # NEW
+    graph.add_node("action_executor", run_action_executor)
 
     graph.set_entry_point("threat_hunter")
     graph.add_edge("threat_hunter", "forensics")
@@ -37,11 +41,11 @@ def build_workflow():
         route_after_mitigation,
         {
             "needs_approval": "hitl_approval",
-            "auto_execute": "action_executor",   # CHANGED from END
+            "auto_execute": "action_executor",
         }
     )
 
-    graph.add_edge("hitl_approval", "action_executor")   # CHANGED from END
-    graph.add_edge("action_executor", END)                # NEW final edge
+    graph.add_edge("hitl_approval", "action_executor")
+    graph.add_edge("action_executor", END)
 
     return graph.compile()
