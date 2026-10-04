@@ -122,3 +122,64 @@ class IncidentState(TypedDict):
     memory: Memory
     agent_trace: List[str]
     error: Optional[str]
+
+def empty_incident_state() -> dict:
+    """
+    Returns a fresh IncidentState with every section initialized to safe
+    empty defaults. Use this as the starting point when invoking the
+    graph with REAL agents (not mock data) — each node then fills in
+    only the sections it owns.
+    """
+    return {
+        "incident_id": None,
+        "incident": {
+            "status": "DETECTED",
+            "created_at": None,
+            "updated_at": None,
+            "severity": "LOW",
+            "confidence": 0.0,
+        },
+        "source": {},
+        "event": {},
+        "threat": {},
+        "investigation": {
+            "agent": "ForensicsAgent",
+            "status": "NOT_STARTED",
+            "findings": [],
+            "evidence": [],
+            "mitre_attack": {
+                "tactic": None, "technique_id": None, "technique_name": None,
+                "confidence": None, "needs_review": False,
+            },
+            "historical_context": {"seen_before": False, "matches": [], "similarity": None},
+            "attack_pattern": None,
+            "recommended_action": None,
+        },
+        "response": {
+            "agent": "MitigationAgent",
+            "status": "NOT_STARTED",
+            "risk_score": None,
+            "risk_level": None,
+            "proposed_action": None,
+            "action_type": None,
+            "action_parameters": {},
+            "requires_approval": False,
+            "approval_status": "NOT_REQUIRED",
+            "approved_by": None,
+            "execution_status": "NOT_STARTED",
+            "execution_result": None,
+            "justification": None,
+        },
+        "verification": {
+            "status": "PENDING",
+            "threat_contained": False,
+            "details": [],
+        },
+        "memory": {
+            "stored": False,
+            "historical_retrieval_completed": False,
+            "vector_id": None,
+        },
+        "agent_trace": [],
+        "error": None,
+    }

@@ -1,3 +1,7 @@
 langgraph
 langchain
 langchain-core
+psutil
+requests
+numpy
+chromadb
