@@ -1,13 +1,48 @@
 import psutil
+import subprocess
 from orchestrator.state import IncidentState
 
 
 def block_source_ip(state: IncidentState) -> str:
-    ip = state["source"].get("source_ip", "unknown")
-    return f"[SIMULATED] Source IP {ip} has been blocked at the firewall."
+    ip = state["source"].get("source_ip")
+    if not ip or ip in ["unknown", "127.0.0.1"]:
+        return f"[SIMULATED] Source IP {ip} blocked (Skipping real firewall rule for localhost/unknown)."
+    
+    try:
+        # T1071 / Network Denial - Add Windows Firewall Rule
+        subprocess.run(
+            ["netsh", "advfirewall", "firewall", "add", "rule", 
+             f"name=IR-Auto-Block-{ip}", "dir=in", "action=block", f"remoteip={ip}"], 
+            check=True, capture_output=True, text=True
+        )
+        return f"Successfully executed MITRE Mitigation: Blocked {ip} at the Windows Firewall."
+    except subprocess.CalledProcessError as e:
+        return f"Failed to block IP {ip} (Check if running as Admin). Error: {e.stderr}"
+    except Exception as e:
+        return f"Failed to block IP {ip} — {str(e)}"
+
+
+def disable_compromised_account(state: IncidentState) -> str:
+    user = state["source"].get("user")
+    if not user or user.lower() in ["unknown", "system", "administrator"]:
+        return f"[SIMULATED] Disable account '{user}' (Skipped built-in/critical account for safety)."
+    
+    try:
+        # T1110 - Account Access Removal
+        subprocess.run(
+            ["net", "user", user, "/active:no"],
+            check=True, capture_output=True, text=True
+        )
+        return f"Successfully executed MITRE Mitigation: Disabled compromised local account '{user}'."
+    except subprocess.CalledProcessError as e:
+        return f"Failed to disable account '{user}' (Check if running as Admin). Error: {e.stderr}"
+    except Exception as e:
+        return f"Failed to disable account '{user}' — {str(e)}"
 
 
 def isolate_affected_host(state: IncidentState) -> str:
+    # Extreme measure: Disable all network adapters
+    # For a lab environment, we might just want to simulate this so we don't drop their RDP/SSH.
     ip = state["source"].get("source_ip", "unknown")
     return f"[SIMULATED] Host associated with {ip} has been isolated from the network."
 
@@ -29,22 +64,25 @@ def kill_malicious_process(state: IncidentState) -> str:
     pid = state.get("event", {}).get("raw_data", {}).get("pid")
     if pid:
         try:
+            # T1059 / T1489 - Process Termination
             proc = psutil.Process(pid)
             process_name = proc.name()
             proc.kill()
-            return f"Successfully terminated malicious process '{process_name}' (PID: {pid})."
+            return f"Successfully executed MITRE Mitigation: Terminated malicious process '{process_name}' (PID: {pid})."
         except psutil.NoSuchProcess:
             return f"Process with PID {pid} already exited before mitigation."
         except psutil.AccessDenied:
             return f"Failed to kill process {pid} — Access Denied. Try running terminal as Administrator."
         except Exception as e:
             return f"Failed to kill process {pid} — {str(e)}"
-    return f"[SIMULATED] Isolate Affected Host — no specific PID found to kill."
+    return f"[SIMULATED] Kill Malicious Process — no specific PID found to kill."
 
 
 ACTION_EXECUTORS = {
     "Block Source IP": block_source_ip,
-    "Isolate Affected Host": kill_malicious_process,
+    "Disable Compromised Account": disable_compromised_account,
+    "Isolate Affected Host": kill_malicious_process,  # We overloaded this earlier, let's keep it mapped
+    "Kill Malicious Process": kill_malicious_process,
     "Isolate Affected Host and Disable Network Share": isolate_affected_host,
     "Flag and Quarantine Email/User Session": quarantine_email_session,
     "Rate-limit Source IP": rate_limit_source_ip,
@@ -86,4 +124,5 @@ def run_action_executor(state: IncidentState) -> IncidentState:
 
     print(f"\n--- ACTION EXECUTED ---\n{result}\n")
 
+    return state
     return state

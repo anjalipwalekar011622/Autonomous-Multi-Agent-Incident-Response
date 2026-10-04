@@ -103,8 +103,7 @@ export default function Dashboard() {
 
       if (state.threat?.detected) {
         if (isAuto) {
-           addLog('WARN', 'ORCHESTRATOR', 'Auto-monitor detected a threat! Pausing monitor.');
-           setMonitoring(false);
+           addLog('WARN', 'ORCHESTRATOR', 'Auto-monitor detected a threat! Pausing for human approval.');
         }
         addLog('INFO', 'API', `Backend processed trigger — ${data.incident_id}.`);
         setAgentStatus('threat_hunter', 'completed');

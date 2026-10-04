@@ -26,6 +26,24 @@ class IncidentRequest(BaseModel):
 # Initialize global workflow to share memory saver
 workflow = build_workflow()
 
+# Track active thread IDs in-memory for the reporting dashboard
+thread_ids = []
+
+@app.get("/api/incidents")
+async def get_all_incidents():
+    try:
+        incidents = []
+        # Return newest first
+        for t_id in reversed(thread_ids):
+            config = {"configurable": {"thread_id": t_id}}
+            current = workflow.get_state(config)
+            if current and current.values:
+                incidents.append(current.values)
+        return {"status": "success", "incidents": incidents}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/incidents/trigger")
 @app.post("/api/v1/incident/trigger")
 async def trigger_incident(payload: IncidentRequest):
@@ -38,6 +56,9 @@ async def trigger_incident(payload: IncidentRequest):
         
         config = {"configurable": {"thread_id": incident_id}}
         
+        if incident_id not in thread_ids:
+            thread_ids.append(incident_id)
+            
         # Execute workflow up to interrupt (or completion)
         result_state = workflow.invoke(initial_state, config=config)
         

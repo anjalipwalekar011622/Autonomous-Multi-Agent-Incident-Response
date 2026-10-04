@@ -25,3 +25,13 @@ export const triggerIncident = async (incidentData) => {
     throw error;
   }
 };
+
+export const getIncidents = async () => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/incidents');
+    return await response.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+};
