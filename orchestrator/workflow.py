@@ -7,18 +7,12 @@ from agents.mitigation.mitigation import run_mitigation_agent
 from agents.mitigation.approval import hitl_approval_node
 from agents.mitigation.actions import run_action_executor
 
-# Real agent imports (replacing old stubs)
+# Real agent imports (production)
 from agents.threat_hunter.threat_hunter import threat_hunter_node
 from agents.forensics.forensics import forensics_node as real_forensics_node
 
 
 def forensics_node_with_timeout(state: dict, timeout_seconds: int = 8) -> dict:
-    """
-    Wraps the real Forensics node with a timeout so a hanging/slow Ollama
-    call (up to 30s internally) can't freeze the whole pipeline during a
-    live demo. Falls back to a safe empty investigation/memory block if
-    the real node doesn't finish in time.
-    """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(real_forensics_node, state)
         try:
@@ -26,27 +20,36 @@ def forensics_node_with_timeout(state: dict, timeout_seconds: int = 8) -> dict:
         except concurrent.futures.TimeoutError:
             print(f"[Orchestrator] Forensics node timed out after {timeout_seconds}s — using fallback.")
             state["investigation"] = {
-                "agent": "ForensicsAgent",
-                "status": "FAILED",
-                "findings": [],
-                "evidence": [],
-                "mitre_attack": {
-                    "tactic": None, "technique_id": None, "technique_name": None,
-                    "confidence": None, "needs_review": True,
-                },
+                "agent": "ForensicsAgent", "status": "FAILED", "findings": [], "evidence": [],
+                "mitre_attack": {"tactic": None, "technique_id": None, "technique_name": None,
+                                  "confidence": None, "needs_review": True},
                 "historical_context": {"seen_before": False, "matches": [], "similarity": None},
-                "attack_pattern": None,
-                "recommended_action": None,
+                "attack_pattern": None, "recommended_action": None,
             }
-            state["memory"] = {
-                "stored": False,
-                "historical_retrieval_completed": False,
-                "vector_id": None,
-            }
+            state["memory"] = {"stored": False, "historical_retrieval_completed": False, "vector_id": None}
             return state
 
 
+# ---------- STUB NODES (for mock/unit testing only) ----------
+
+def stub_threat_hunter_node(state: IncidentState) -> IncidentState:
+    """Testing-only stub: keeps whatever threat/source/event the mock
+    data already set, instead of running real detection."""
+    state["incident"]["status"] = "INVESTIGATING"
+    return state
+
+
+def stub_forensics_node(state: IncidentState) -> IncidentState:
+    """Testing-only stub: keeps whatever investigation/memory the mock
+    data already set, instead of running real ChromaDB/Ollama calls."""
+    state["incident"]["status"] = "MITIGATION_PLANNING"
+    return state
+
+
+# ---------- BUILDERS ----------
+
 def build_workflow():
+    """PRODUCTION workflow — uses real Threat Hunter and Forensics agents."""
     graph = StateGraph(IncidentState)
 
     graph.add_node("threat_hunter", threat_hunter_node)
@@ -62,10 +65,34 @@ def build_workflow():
     graph.add_conditional_edges(
         "mitigation",
         route_after_mitigation,
-        {
-            "needs_approval": "hitl_approval",
-            "auto_execute": "action_executor",
-        }
+        {"needs_approval": "hitl_approval", "auto_execute": "action_executor"}
+    )
+
+    graph.add_edge("hitl_approval", "action_executor")
+    graph.add_edge("action_executor", END)
+
+    return graph.compile()
+
+
+def build_mock_workflow():
+    """TESTING workflow — uses stub nodes so mock_data's crafted
+    scenarios (Scenario A/B/C/D) actually control the outcome."""
+    graph = StateGraph(IncidentState)
+
+    graph.add_node("threat_hunter", stub_threat_hunter_node)
+    graph.add_node("forensics", stub_forensics_node)
+    graph.add_node("mitigation", run_mitigation_agent)
+    graph.add_node("hitl_approval", hitl_approval_node)
+    graph.add_node("action_executor", run_action_executor)
+
+    graph.set_entry_point("threat_hunter")
+    graph.add_edge("threat_hunter", "forensics")
+    graph.add_edge("forensics", "mitigation")
+
+    graph.add_conditional_edges(
+        "mitigation",
+        route_after_mitigation,
+        {"needs_approval": "hitl_approval", "auto_execute": "action_executor"}
     )
 
     graph.add_edge("hitl_approval", "action_executor")

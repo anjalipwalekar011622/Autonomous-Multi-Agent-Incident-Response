@@ -1,10 +1,10 @@
 import copy
-from orchestrator.workflow import build_workflow
+from orchestrator.workflow import build_mock_workflow
 from orchestrator.mock_data import make_mock_state
 
 
 def run(state):
-    app = build_workflow()
+    app = build_mock_workflow()
     return app.invoke(state)
 
 
@@ -43,7 +43,7 @@ def test_scenario_B_high_risk_rejected():
         importlib.reload(workflow_module)
 
         state = make_mock_state(attack_type="Ransomware")
-        app = workflow_module.build_workflow()
+        app = workflow_module.build_mock_workflow()   # CHANGED
         result = app.invoke(state)
 
         assert result["response"]["approval_status"] == "REJECTED"
