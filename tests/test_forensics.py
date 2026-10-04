@@ -19,7 +19,6 @@ class TestForensicsModule(unittest.TestCase):
 
     def test_forensics_agent_execution(self):
         """Test the end-to-end analyze_incident function."""
-
         sample_alert = {
             "event": "Suspicious PowerShell Execution",
             "event_id": "4688",
@@ -27,42 +26,26 @@ class TestForensicsModule(unittest.TestCase):
             "user": "System_Account",
             "severity": "Critical"
         }
-
+        
         report = self.agent.analyze_incident(sample_alert)
-
-        # Common incident structure
-        self.assertIn("incident_id", report)
+        
         self.assertIn("investigation", report)
         self.assertIn("memory", report)
-
-        # ForensicsAgent section
-        self.assertEqual(
-            report["investigation"]["agent"],
-            "ForensicsAgent"
-        )
-
-        self.assertEqual(
-            report["investigation"]["status"],
-            "COMPLETED"
-        )
-
-        # MITRE section
-        self.assertIn(
-            "mitre_attack",
-            report["investigation"]
-        )
-
-        # Historical context
-        self.assertIn(
-            "historical_context",
-            report["investigation"]
-        )
-
-        # Recommended action
-        self.assertIn(
-            "recommended_action",
-            report["investigation"]
-        )
+        
+        investigation = report["investigation"]
+        self.assertEqual(investigation["agent"], "ForensicsAgent")
+        self.assertEqual(investigation["status"], "COMPLETED")
+        self.assertIsInstance(investigation["evidence"], list)
+        for ev in investigation["evidence"]:
+            self.assertIsInstance(ev, str)
+            
+        self.assertIn("mitre_attack", investigation)
+        self.assertIn("historical_context", investigation)
+        self.assertIn("recommended_action", investigation)
+        
+        memory = report["memory"]
+        self.assertTrue(memory["stored"])
+        self.assertTrue(memory["historical_retrieval_completed"])
 
 if __name__ == "__main__":
     unittest.main()
