@@ -6,8 +6,7 @@ def test_real_pipeline():
     app = build_workflow()
 
     initial_state = empty_incident_state()   # CHANGED — was a bare {"incident_id": None, "agent_trace": []}
-
-    result = app.invoke(initial_state)
+    result = app.invoke(initial_state, config={"configurable": {"thread_id": "test_real"}})
 
     print("\n=== FINAL STATE (REAL AGENTS) ===")
     print("Incident ID:", result.get("incident_id"))

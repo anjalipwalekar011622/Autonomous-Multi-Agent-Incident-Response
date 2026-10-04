@@ -1,3 +1,4 @@
+import psutil
 from orchestrator.state import IncidentState
 
 
@@ -24,9 +25,26 @@ def flag_for_manual_review(state: IncidentState) -> str:
     return "[SIMULATED] Incident flagged for manual analyst review — no automated action taken."
 
 
+def kill_malicious_process(state: IncidentState) -> str:
+    pid = state.get("event", {}).get("raw_data", {}).get("pid")
+    if pid:
+        try:
+            proc = psutil.Process(pid)
+            process_name = proc.name()
+            proc.kill()
+            return f"Successfully terminated malicious process '{process_name}' (PID: {pid})."
+        except psutil.NoSuchProcess:
+            return f"Process with PID {pid} already exited before mitigation."
+        except psutil.AccessDenied:
+            return f"Failed to kill process {pid} — Access Denied. Try running terminal as Administrator."
+        except Exception as e:
+            return f"Failed to kill process {pid} — {str(e)}"
+    return f"[SIMULATED] Isolate Affected Host — no specific PID found to kill."
+
+
 ACTION_EXECUTORS = {
     "Block Source IP": block_source_ip,
-    "Isolate Affected Host": isolate_affected_host,
+    "Isolate Affected Host": kill_malicious_process,
     "Isolate Affected Host and Disable Network Share": isolate_affected_host,
     "Flag and Quarantine Email/User Session": quarantine_email_session,
     "Rate-limit Source IP": rate_limit_source_ip,

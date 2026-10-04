@@ -82,76 +82,99 @@ export default function Dashboard() {
     );
   }, []);
 
-  // -------------------------------------------------------------------------
-  // Client-side simulation of the orchestration sequence so the dashboard is
-  // fully demoable before the LangGraph workflow streams real events. Swap
-  // the body of this function for a WebSocket/SSE subscription once
-  // orchestrator/workflow.py exposes live agent state — setAgentStatus/addLog
-  // can stay exactly as-is.
-  // -------------------------------------------------------------------------
-  const runPipeline = useCallback(async () => {
-    setAgentStatus('orchestrator', 'running');
-    addLog('INFO', 'ORCHESTRATOR', 'Incident trigger received — dispatching workflow.');
-    await delay(500);
+  const [pendingIncidentId, setPendingIncidentId] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [monitoring, setMonitoring] = useState(false);
 
-    setAgentStatus('threat_hunter', 'running');
-    addLog('INFO', 'THREAT_HUNTER', 'Scanning host telemetry for indicators of compromise.');
-    await delay(1100);
-
-    const iocCount = 2 + Math.floor(Math.random() * 3);
-    setAgentStatus('threat_hunter', 'completed');
-    addLog('SUCCESS', 'THREAT_HUNTER', `${iocCount} suspicious indicators identified on Host-01.`);
-    setStats((s) => ({ ...s, activeAlerts: s.activeAlerts + iocCount }));
-    await delay(400);
-
-    setAgentStatus('forensics', 'running');
-    addLog('INFO', 'FORENSICS', 'Cross-referencing indicators against memory store.');
-    await delay(1000);
-
-    const memoryHits = Math.floor(Math.random() * 3);
-    setAgentStatus('forensics', 'completed');
-    if (memoryHits > 0) {
-      addLog('SUCCESS', 'FORENSICS', `Matched ${memoryHits} historical incident fingerprint(s).`);
-    } else {
-      addLog('WARN', 'FORENSICS', 'No historical match found — treating as novel pattern.');
-    }
-    setStats((s) => ({ ...s, forensicsHits: s.forensicsHits + memoryHits }));
-    await delay(400);
-
-    addLog('INFO', 'ORCHESTRATOR', 'Root cause correlated — routing to mitigation.');
-    setAgentStatus('orchestrator', 'completed');
-    await delay(400);
-
-    setAgentStatus('mitigation', 'running');
-    addLog('INFO', 'MITIGATION', 'Preparing containment actions for Host-01.');
-    await delay(1100);
-
-    const mitigationSucceeded = Math.random() > 0.15;
-    if (mitigationSucceeded) {
-      setAgentStatus('mitigation', 'completed');
-      addLog('SUCCESS', 'MITIGATION', 'Isolation policy executed — threat contained.');
-      setStats((s) => ({ ...s, mitigationExecuted: s.mitigationExecuted + 1 }));
-    } else {
-      setAgentStatus('mitigation', 'failed');
-      addLog('ERROR', 'MITIGATION', 'Automated containment failed — flagged for manual review.');
-      setStats((s) => ({ ...s, mitigationPending: s.mitigationPending + 1 }));
-    }
-
-    setStats((s) => ({ ...s, totalIncidents: s.totalIncidents + 1 }));
-  }, [addLog, setAgentStatus]);
-
-  const handleTrigger = useCallback(async () => {
+  const handleTrigger = useCallback(async (isAuto = false) => {
     if (loading) return;
     setLoading(true);
+    
+    if (!isAuto) {
+      setLogs([]);
+      addLog('INFO', 'ORCHESTRATOR', 'Manual incident trigger received — dispatching workflow.');
+    }
+    setAgentStatus('orchestrator', 'running');
+    
     try {
       const data = await triggerIncident({ type: 'Manual Trigger', target: 'Host-01' });
-      addLog('INFO', 'API', `Backend accepted trigger — ${data.incident_id}.`);
+      const state = data.state;
+      if (!state) throw new Error("No state returned");
+
+      if (state.threat?.detected) {
+        if (isAuto) {
+           addLog('WARN', 'ORCHESTRATOR', 'Auto-monitor detected a threat! Pausing monitor.');
+           setMonitoring(false);
+        }
+        addLog('INFO', 'API', `Backend processed trigger — ${data.incident_id}.`);
+        setAgentStatus('threat_hunter', 'completed');
+        addLog('SUCCESS', 'THREAT_HUNTER', `Suspicious indicator identified: ${state.threat.attack_type}`);
+
+        setAgentStatus('forensics', 'completed');
+        addLog('INFO', 'FORENSICS', 'Cross-referenced against memory store.');
+
+        setAgentStatus('mitigation', 'running');
+        if (state.response?.approval_status === 'PENDING') {
+          addLog('WARN', 'MITIGATION', `Human approval required for action: ${state.response.proposed_action}`);
+          setPendingIncidentId(data.incident_id);
+          setPendingAction(state.response.proposed_action);
+        } else {
+          setAgentStatus('mitigation', 'completed');
+          addLog('SUCCESS', 'MITIGATION', `Executed: ${state.response?.execution_result}`);
+        }
+      } else {
+        // Clean scan, just quietly reset
+        setAgentStatus('orchestrator', 'idle');
+        setAgentStatus('threat_hunter', 'idle');
+        setAgentStatus('forensics', 'idle');
+        setAgentStatus('mitigation', 'idle');
+        if (!isAuto) addLog('INFO', 'THREAT_HUNTER', 'Scan completed. Host is clean.');
+      }
+      
     } catch (err) {
-      addLog('WARN', 'API', 'Backend unreachable — continuing in offline simulation mode.');
+      if (!isAuto) addLog('ERROR', 'API', `Backend failed: ${err.message}`);
+      setMonitoring(false);
     }
-    await runPipeline();
     setLoading(false);
-  }, [loading, addLog, runPipeline]);
+  }, [loading, addLog, setAgentStatus]);
+
+  React.useEffect(() => {
+    let timer;
+    if (monitoring && !loading && !pendingIncidentId) {
+      timer = setTimeout(() => {
+        handleTrigger(true);
+      }, 5000); // Poll every 5 seconds
+    }
+    return () => clearTimeout(timer);
+  }, [monitoring, loading, pendingIncidentId, handleTrigger]);
+
+  const handleApprove = async () => {
+    if (!pendingIncidentId) return;
+    addLog('INFO', 'API', `Approving action for ${pendingIncidentId}...`);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/incidents/${pendingIncidentId}/approve`, { method: 'POST' });
+      const data = await response.json();
+      addLog('SUCCESS', 'MITIGATION', `Action executed: ${data.state?.response?.execution_result}`);
+      setAgentStatus('mitigation', 'completed');
+      setPendingIncidentId(null);
+    } catch (err) {
+      addLog('ERROR', 'API', `Approval failed: ${err.message}`);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!pendingIncidentId) return;
+    addLog('INFO', 'API', `Rejecting action for ${pendingIncidentId}...`);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/incidents/${pendingIncidentId}/reject`, { method: 'POST' });
+      const data = await response.json();
+      addLog('WARN', 'MITIGATION', `Action skipped: ${data.state?.response?.execution_result}`);
+      setAgentStatus('mitigation', 'completed');
+      setPendingIncidentId(null);
+    } catch (err) {
+      addLog('ERROR', 'API', `Rejection failed: ${err.message}`);
+    }
+  };
 
   const handleClearLogs = useCallback(() => setLogs([]), []);
 
@@ -167,16 +190,36 @@ export default function Dashboard() {
       <div className="pageHead">
         <div>
           <h1 className="pageTitle">Overview</h1>
-          <p className="pageSubtitle">live agent pipeline · Host-01 monitoring</p>
+          <p className="pageSubtitle">live agent pipeline — Host-01 monitoring</p>
         </div>
-        <div className="actions">
+        <div className="actions" style={{ display: 'flex', gap: '10px' }}>
+          {pendingIncidentId && (
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', backgroundColor: '#334155', padding: '5px 10px', borderRadius: '5px' }}>
+              <span style={{ fontSize: '12px', color: '#f8fafc' }}>Action: {pendingAction}</span>
+              <button className="btnPrimary" style={{ backgroundColor: '#10b981' }} onClick={handleApprove}>Approve</button>
+              <button className="btnGhost" style={{ color: '#ef4444' }} onClick={handleReject}>Reject</button>
+            </div>
+          )}
           <button className="btnGhost" onClick={handleClearLogs} disabled={logs.length === 0}>
             <Trash2 size={14} />
             Clear Logs
           </button>
-          <button className="btnPrimary" onClick={handleTrigger} disabled={loading}>
-            {loading ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
-            {loading ? 'Investigating…' : 'Trigger Incident Simulation'}
+          
+          <button 
+            className="btnGhost" 
+            style={{ 
+              borderColor: monitoring ? '#ef4444' : '#10b981', 
+              color: monitoring ? '#ef4444' : '#10b981' 
+            }}
+            onClick={() => setMonitoring(!monitoring)}
+            disabled={pendingIncidentId !== null}
+          >
+            {monitoring ? 'Stop Monitoring' : 'Start Auto-Monitor'}
+          </button>
+
+          <button className="btnPrimary" onClick={() => handleTrigger(false)} disabled={loading || pendingIncidentId || monitoring}>
+            {loading && !monitoring ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
+            {loading && !monitoring ? 'Investigating...' : 'Trigger Scan'}
           </button>
         </div>
       </div>

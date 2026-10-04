@@ -13,7 +13,7 @@ const getBaseUrl = () => {
 
 const client = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 5000,
+  timeout: 60000,
 });
 
 export const triggerIncident = async (incidentData) => {

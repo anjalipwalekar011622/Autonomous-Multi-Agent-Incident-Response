@@ -1,5 +1,5 @@
 from orchestrator.state import IncidentState
-
+from langgraph.types import interrupt
 
 def hitl_approval_node(state: IncidentState) -> IncidentState:
     print("\n--- HUMAN APPROVAL REQUIRED ---")
@@ -7,13 +7,19 @@ def hitl_approval_node(state: IncidentState) -> IncidentState:
     print(f"Risk Level: {state['response']['risk_level']}")
     print(f"Justification: {state['response']['justification']}")
 
-    # SIMULATED admin decision — replace with real interrupt()/API call later
-    simulated_decision = "APPROVED"
+    # Interrupt pauses execution and waits for API / user input
+    user_action = interrupt({
+        "action": "require_approval",
+        "proposed_action": state['response']['proposed_action']
+    })
 
-    state["response"]["approval_status"] = simulated_decision
-    state["response"]["approved_by"] = "SIMULATED_ADMIN"
-    state["incident"]["status"] = "EXECUTING" if simulated_decision == "APPROVED" else "CLOSED"
+    decision = user_action if user_action else "REJECTED"
 
-    state["agent_trace"].append(f"HITL: decision={simulated_decision}")
+    state["response"]["approval_status"] = decision
+    state["response"]["approved_by"] = "ADMIN_VIA_API"
+    state["incident"]["status"] = "EXECUTING" if decision == "APPROVED" else "CLOSED"
 
+    state["agent_trace"].append(f"HITL: decision={decision}")
+
+    return state
     return state

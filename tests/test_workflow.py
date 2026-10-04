@@ -5,7 +5,7 @@ from orchestrator.mock_data import make_mock_state
 
 def run(state):
     app = build_mock_workflow()
-    return app.invoke(state)
+    return app.invoke(state, config={"configurable": {"thread_id": "test_thread"}})
 
 
 def test_scenario_A_high_risk_approved():
@@ -44,7 +44,7 @@ def test_scenario_B_high_risk_rejected():
 
         state = make_mock_state(attack_type="Ransomware")
         app = workflow_module.build_mock_workflow()   # CHANGED
-        result = app.invoke(state)
+        result = app.invoke(state, config={"configurable": {"thread_id": "test_thread_b"}})
 
         assert result["response"]["approval_status"] == "REJECTED"
         assert result["response"]["execution_status"] == "SKIPPED"

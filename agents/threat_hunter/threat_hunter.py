@@ -42,6 +42,8 @@ def threat_hunter_node(state: dict) -> dict:
     current_time = datetime.now(timezone.utc).isoformat()
 
     if alerts:
+        severity_order = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
+        alerts.sort(key=lambda a: severity_order.get(a.get("severity", "Low"), 0), reverse=True)
         top_alert = alerts[0]
         # Align attack type naming with team standards
         attack_type = top_alert.get("attack_type", "Brute Force Authentication")

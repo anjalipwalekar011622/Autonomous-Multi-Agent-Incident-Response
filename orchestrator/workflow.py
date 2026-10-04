@@ -1,6 +1,7 @@
 import concurrent.futures
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from orchestrator.state import IncidentState
 from orchestrator.router import route_after_mitigation
 from agents.mitigation.mitigation import run_mitigation_agent
@@ -11,6 +12,8 @@ from agents.mitigation.actions import run_action_executor
 from agents.threat_hunter.threat_hunter import threat_hunter_node
 from agents.forensics.forensics import forensics_node as real_forensics_node
 
+# Global checkpointer for the application
+memory_saver = MemorySaver()
 
 def forensics_node_with_timeout(state: dict, timeout_seconds: int = 8) -> dict:
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -18,7 +21,7 @@ def forensics_node_with_timeout(state: dict, timeout_seconds: int = 8) -> dict:
         try:
             return future.result(timeout=timeout_seconds)
         except concurrent.futures.TimeoutError:
-            print(f"[Orchestrator] Forensics node timed out after {timeout_seconds}s — using fallback.")
+            print(f"[Orchestrator] Forensics node timed out after {timeout_seconds}s - using fallback.")
             state["investigation"] = {
                 "agent": "ForensicsAgent", "status": "FAILED", "findings": [], "evidence": [],
                 "mitre_attack": {"tactic": None, "technique_id": None, "technique_name": None,
@@ -33,15 +36,11 @@ def forensics_node_with_timeout(state: dict, timeout_seconds: int = 8) -> dict:
 # ---------- STUB NODES (for mock/unit testing only) ----------
 
 def stub_threat_hunter_node(state: IncidentState) -> IncidentState:
-    """Testing-only stub: keeps whatever threat/source/event the mock
-    data already set, instead of running real detection."""
     state["incident"]["status"] = "INVESTIGATING"
     return state
 
 
 def stub_forensics_node(state: IncidentState) -> IncidentState:
-    """Testing-only stub: keeps whatever investigation/memory the mock
-    data already set, instead of running real ChromaDB/Ollama calls."""
     state["incident"]["status"] = "MITIGATION_PLANNING"
     return state
 
@@ -49,7 +48,6 @@ def stub_forensics_node(state: IncidentState) -> IncidentState:
 # ---------- BUILDERS ----------
 
 def build_workflow():
-    """PRODUCTION workflow — uses real Threat Hunter and Forensics agents."""
     graph = StateGraph(IncidentState)
 
     graph.add_node("threat_hunter", threat_hunter_node)
@@ -71,12 +69,10 @@ def build_workflow():
     graph.add_edge("hitl_approval", "action_executor")
     graph.add_edge("action_executor", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=memory_saver)
 
 
 def build_mock_workflow():
-    """TESTING workflow — uses stub nodes so mock_data's crafted
-    scenarios (Scenario A/B/C/D) actually control the outcome."""
     graph = StateGraph(IncidentState)
 
     graph.add_node("threat_hunter", stub_threat_hunter_node)
@@ -98,4 +94,5 @@ def build_mock_workflow():
     graph.add_edge("hitl_approval", "action_executor")
     graph.add_edge("action_executor", END)
 
+    return graph.compile(checkpointer=memory_saver)
     return graph.compile()
