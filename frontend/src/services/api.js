@@ -1,18 +1,24 @@
 import axios from 'axios';
 
-// Detects Codespaces environment dynamically and points to Port 8000
+// Get base URL for deployment, Codespaces, or Localhost
 const getBaseUrl = () => {
+  // If we set a VITE_API_URL in deployment (e.g. Vercel/Netlify), use it
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   const host = window.location.hostname;
   if (host.includes('app.github.dev')) {
-    // Replaces -5176 (or any frontend port) with -8000
     const backendHost = host.replace(/-\d+\.app\.github\.dev/, '-8000.app.github.dev');
-    return `https://${backendHost}/api/v1/incident`;
+    return `https://${backendHost}`;
   }
-  return 'http://127.0.0.1:8000/api/v1/incident';
+  return 'http://127.0.0.1:8000';
 };
 
+const BASE_URL = getBaseUrl();
+
 const client = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: `${BASE_URL}/api/v1/incident`,
   timeout: 60000,
 });
 
@@ -28,7 +34,7 @@ export const triggerIncident = async (incidentData) => {
 
 export const getIncidents = async () => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/incidents');
+    const response = await fetch(`${BASE_URL}/api/incidents`);
     return await response.json();
   } catch (error) {
     console.error('API Error:', error);
