@@ -22,6 +22,10 @@ class Source(TypedDict):
     destination_ip: Optional[str]
     destination_port: Optional[int]
     user: Optional[str]
+    pid: Optional[int]
+    process_name: Optional[str]
+    executable_path: Optional[str]
+    command_line: Optional[str]
 
 
 # ---------- event ----------

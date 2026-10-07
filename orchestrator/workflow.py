@@ -95,4 +95,3 @@ def build_mock_workflow():
     graph.add_edge("action_executor", END)
 
     return graph.compile(checkpointer=memory_saver)
-    return graph.compile()

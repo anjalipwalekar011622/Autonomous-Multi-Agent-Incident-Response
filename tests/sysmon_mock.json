@@ -1,0 +1,38 @@
+[
+    {
+        "event_id": 1,
+        "data": {
+            "process_id": 1234,
+            "process_name": "powershell.exe",
+            "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "command_line": "powershell.exe -enc JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AEYAcgBvAG0AQgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKAAiAEgA...",
+            "user": "TEST\\User"
+        }
+    },
+    {
+        "event_id": 3,
+        "data": {
+            "process_id": 5678,
+            "image": "C:\\malicious\\scanner.exe",
+            "source_ip": "192.168.1.10",
+            "destination_port": 80
+        }
+    },
+    {
+        "event_id": 10,
+        "data": {
+            "source_process_id": 1111,
+            "source_image": "C:\\temp\\mimikatz.exe",
+            "target_image": "C:\\Windows\\System32\\lsass.exe",
+            "granted_access": "0x1410"
+        }
+    },
+    {
+        "event_id": 13,
+        "data": {
+            "process_id": 2222,
+            "image": "C:\\temp\\persist.exe",
+            "target_object": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Backdoor"
+        }
+    }
+]

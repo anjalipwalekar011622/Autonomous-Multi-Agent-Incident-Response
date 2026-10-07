@@ -23,6 +23,15 @@ class IncidentRequest(BaseModel):
     type: str = "Manual Trigger"
     target: str = "Host-01"
 
+import threading
+import time
+from agents.threat_hunter.log_parser import LogParser
+from agents.threat_hunter.threat_hunter import ThreatHunterAgent
+
+monitor_running = False
+monitor_thread = None
+log_parser = LogParser()
+
 # Initialize global workflow to share memory saver
 workflow = build_workflow()
 
@@ -42,6 +51,46 @@ async def get_all_incidents():
         return {"status": "success", "incidents": incidents}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+def _monitor_and_trigger():
+    global monitor_running
+    agent = ThreatHunterAgent()
+    agent.parser = log_parser # share the parser
+    
+    while monitor_running:
+        try:
+            alerts = agent.run_detection()
+            if alerts:
+                # We found an alert! Trigger workflow automatically
+                initial_state = empty_incident_state()
+                initial_state["event"]["raw_data"] = {"pre_detected_alerts": alerts}
+                incident_id = f"INC-{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+                initial_state["incident_id"] = incident_id
+                config = {"configurable": {"thread_id": incident_id}}
+                thread_ids.append(incident_id)
+                workflow.invoke(initial_state, config=config)
+        except Exception as e:
+            print(f"[Monitor] error: {e}")
+        time.sleep(5)
+
+@app.post("/api/monitoring/start")
+async def start_monitoring():
+    global monitor_running, monitor_thread
+    if monitor_running:
+        return {"status": "success", "message": "Monitoring is already running"}
+    
+    # Start the consumer loop
+    monitor_running = True
+    monitor_thread = threading.Thread(target=_monitor_and_trigger, daemon=True)
+    monitor_thread.start()
+    return {"status": "success", "message": "Monitoring started"}
+
+@app.post("/api/monitoring/stop")
+async def stop_monitoring():
+    global monitor_running
+    monitor_running = False
+    return {"status": "success", "message": "Monitoring stopped"}
+
 
 
 @app.post("/api/incidents/trigger")
@@ -119,5 +168,4 @@ async def reject_incident(incident_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host=Config.HOST, port=Config.PORT, reload=Config.DEBUG)
     uvicorn.run("backend.main:app", host=Config.HOST, port=Config.PORT, reload=Config.DEBUG)

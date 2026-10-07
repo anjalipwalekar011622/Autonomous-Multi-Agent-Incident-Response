@@ -1,8 +1,11 @@
+import os
 import chromadb
 from typing import Dict, Any, List
 
 class IncidentMemory:
-    def __init__(self, db_path: str = "./chroma_db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            db_path = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
         # Creates/connects to a local persistent ChromaDB database on disk
         self.client = chromadb.PersistentClient(path=db_path)
         # Creates or retrieves a vector collection for security incidents

@@ -10,6 +10,9 @@ EXACT_MATCHES = {
     "Suspicious Port Activity": "DDoS",
     "Obfuscated Command Execution": "Malware",
     "Resource Hijacking (CPU Anomaly)": "Malware",
+    "Suspicious PowerShell": "Suspicious PowerShell",
+    "Suspicious Process Access": "Suspicious Process Access",
+    "Suspicious Registry Activity": "Suspicious Registry Activity",
 }
 
 # Substring/keyword fallback for patterns that vary (e.g. binary name
@@ -25,6 +28,9 @@ KEYWORD_MATCHES = [
     ("obfuscated", "Malware"),
     ("resource hijacking", "Malware"),
     ("suspicious port", "DDoS"),
+    ("powershell", "Suspicious PowerShell"),
+    ("process access", "Suspicious Process Access"),
+    ("registry", "Suspicious Registry Activity"),
 ]
 
 

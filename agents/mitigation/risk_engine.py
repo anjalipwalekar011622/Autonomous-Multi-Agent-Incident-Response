@@ -11,6 +11,9 @@ ATTACK_TYPE_BASE_SCORE = {
     "Port Scan": 20,
     "SQL Injection": 75,
     "DDoS": 85,
+    "Suspicious PowerShell": 85,
+    "Suspicious Process Access": 80,
+    "Suspicious Registry Activity": 65,
     "Unknown": 50,
 }
 
@@ -51,5 +54,9 @@ def score_to_risk_level(score: int) -> RiskLevel:
         return "Low"
 
 
-def requires_human_approval(risk_level: RiskLevel) -> bool:
-    return risk_level in ("Medium", "High", "Critical")
+def requires_human_approval(risk_level: RiskLevel, is_reversible: bool = False) -> bool:
+    if risk_level == "Low":
+        return False
+    if risk_level == "Medium" and is_reversible:
+        return False
+    return True

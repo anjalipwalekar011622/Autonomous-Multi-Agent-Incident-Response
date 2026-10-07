@@ -4,18 +4,23 @@ from orchestrator.state import IncidentState
 
 
 def block_source_ip(state: IncidentState) -> str:
-    ip = state["source"].get("source_ip")
-    if not ip or ip in ["unknown", "127.0.0.1"]:
-        return f"[SIMULATED] Source IP {ip} blocked (Skipping real firewall rule for localhost/unknown)."
+    params = state.get("response", {}).get("action_parameters", {})
+    ip = params.get("source_ip")
+    if not ip:
+        ip = state["source"].get("source_ip")
+        
+    if not ip or ip in ["unknown", "127.0.0.1", "localhost", "::1", "203.0.113.5"]:
+        return f"[SIMULATED] Source IP {ip} blocked (Skipping real firewall rule for localhost/unknown/test)."
     
     try:
         # T1071 / Network Denial - Add Windows Firewall Rule
+        rule_name = f"IR-Auto-Block-{ip}"
         subprocess.run(
             ["netsh", "advfirewall", "firewall", "add", "rule", 
-             f"name=IR-Auto-Block-{ip}", "dir=in", "action=block", f"remoteip={ip}"], 
+             f"name={rule_name}", "dir=in", "action=block", f"remoteip={ip}"], 
             check=True, capture_output=True, text=True
         )
-        return f"Successfully executed MITRE Mitigation: Blocked {ip} at the Windows Firewall."
+        return f"Successfully executed MITRE Mitigation: Blocked {ip} at the Windows Firewall. (Cleanup: netsh advfirewall firewall delete rule name={rule_name})"
     except subprocess.CalledProcessError as e:
         return f"Failed to block IP {ip} (Check if running as Admin). Error: {e.stderr}"
     except Exception as e:
@@ -61,32 +66,50 @@ def flag_for_manual_review(state: IncidentState) -> str:
 
 
 def kill_malicious_process(state: IncidentState) -> str:
-    pid = state.get("event", {}).get("raw_data", {}).get("pid")
-    if pid:
-        try:
-            # T1059 / T1489 - Process Termination
-            proc = psutil.Process(pid)
-            process_name = proc.name()
-            proc.kill()
-            return f"Successfully executed MITRE Mitigation: Terminated malicious process '{process_name}' (PID: {pid})."
-        except psutil.NoSuchProcess:
-            return f"Process with PID {pid} already exited before mitigation."
-        except psutil.AccessDenied:
-            return f"Failed to kill process {pid} — Access Denied. Try running terminal as Administrator."
-        except Exception as e:
-            return f"Failed to kill process {pid} — {str(e)}"
-    return f"[SIMULATED] Kill Malicious Process — no specific PID found to kill."
+    params = state.get("response", {}).get("action_parameters", {})
+    pid = params.get("pid")
+    if not pid:
+        pid = state.get("event", {}).get("raw_data", {}).get("pid")
+        
+    expected_name = (params.get("process_name") or state.get("source", {}).get("process_name") or "").lower()
+    
+    if not pid:
+        return "[SIMULATED] Kill Malicious Process — no specific PID found to kill."
+        
+    protected_procs = ["system", "system idle process", "smss.exe", "csrss.exe", 
+                       "wininit.exe", "services.exe", "lsass.exe", "winlogon.exe"]
+    
+    if expected_name in protected_procs:
+        return f"Failed to kill process {pid} — Process '{expected_name}' is protected system critical process."
+
+    try:
+        proc = psutil.Process(int(pid))
+        current_name = proc.name().lower()
+        if expected_name and expected_name != current_name:
+             return f"Failed to kill process {pid} — Process name mismatch (expected {expected_name}, got {current_name}). Potential PID reuse."
+             
+        if current_name in protected_procs:
+            return f"Failed to kill process {pid} — Process '{current_name}' is protected."
+            
+        proc.kill()
+        return f"Successfully executed MITRE Mitigation: Terminated malicious process '{current_name}' (PID: {pid})."
+    except psutil.NoSuchProcess:
+        return f"Process with PID {pid} already exited before mitigation."
+    except psutil.AccessDenied:
+        return f"Failed to kill process {pid} — Access Denied. Try running terminal as Administrator."
+    except Exception as e:
+        return f"Failed to kill process {pid} — {str(e)}"
 
 
 ACTION_EXECUTORS = {
     "Block Source IP": block_source_ip,
     "Disable Compromised Account": disable_compromised_account,
-    "Isolate Affected Host": kill_malicious_process,  # We overloaded this earlier, let's keep it mapped
+    "Isolate Affected Host": kill_malicious_process,
     "Kill Malicious Process": kill_malicious_process,
-    "Isolate Affected Host and Disable Network Share": isolate_affected_host,
+    "Isolate Affected Host and Disable Network Share": kill_malicious_process,
     "Flag and Quarantine Email/User Session": quarantine_email_session,
-    "Rate-limit Source IP": rate_limit_source_ip,
-    "Flag Source IP as Suspicious": rate_limit_source_ip,
+    "Rate-limit Source IP": block_source_ip,
+    "Flag Source IP as Suspicious": block_source_ip,
     "Block Source IP and Alert DB Admin": block_source_ip,
     "Flag for Manual Review": flag_for_manual_review,
 }
@@ -112,14 +135,16 @@ def run_action_executor(state: IncidentState) -> IncidentState:
     executor_fn = ACTION_EXECUTORS.get(action, flag_for_manual_review)
     result = executor_fn(state)
 
-    state["response"]["execution_status"] = "EXECUTED"
+    is_failure = "Failed to" in result
+
+    state["response"]["execution_status"] = "FAILED" if is_failure else "EXECUTED"
     state["response"]["execution_result"] = result
 
     state["verification"]["status"] = "VERIFIED"
-    state["verification"]["threat_contained"] = True
+    state["verification"]["threat_contained"] = not is_failure
     state["verification"]["details"].append(result)
 
-    state["incident"]["status"] = "RESOLVED"
+    state["incident"]["status"] = "RESOLVED" if not is_failure else "FAILED"
     state["agent_trace"].append("ActionExecutor: action executed")
 
     print(f"\n--- ACTION EXECUTED ---\n{result}\n")

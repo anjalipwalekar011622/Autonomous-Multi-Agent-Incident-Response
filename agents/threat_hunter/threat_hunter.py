@@ -5,19 +5,24 @@ from datetime import datetime, timezone
 from agents.threat_hunter.log_parser import LogParser
 from agents.threat_hunter.anomaly_detector import MultiVectorAnomalyDetector
 
+# Singleton parser to share deduplication state across manual triggers
+SHARED_PARSER = LogParser()
+
 class ThreatHunterAgent:
     def __init__(self):
-        self.parser = LogParser()
+        self.parser = SHARED_PARSER
         self.detector = MultiVectorAnomalyDetector()
 
     def run_detection(self):
         """Internal telemetry sweep and multi-vector detection logic."""
         events = self.parser.read_live_windows_events()
+        sysmon_events = self.parser.read_sysmon_events()
         processes = self.parser.get_process_telemetry()
         connections = self.parser.get_network_sockets()
 
         alerts = []
         alerts.extend(self.detector.analyze_event_logs(events))
+        alerts.extend(self.detector.analyze_sysmon_events(sysmon_events))
         alerts.extend(self.detector.analyze_processes(processes))
         alerts.extend(self.detector.analyze_network_connections(connections))
         return alerts
@@ -31,8 +36,12 @@ def threat_hunter_node(state: dict) -> dict:
     - Populates incident, source, event, and threat blocks.
     - Normalizes confidence (0 to 1 scale) and attack types.
     """
-    agent = ThreatHunterAgent()
-    alerts = agent.run_detection()
+    pre_detected = state.get("event", {}).get("raw_data", {}).get("pre_detected_alerts")
+    if pre_detected:
+        alerts = pre_detected
+    else:
+        agent = ThreatHunterAgent()
+        alerts = agent.run_detection()
 
     # 1. Preserve existing incident_id if present, else generate one
     incident_id = state.get("incident_id")
@@ -61,10 +70,14 @@ def threat_hunter_node(state: dict) -> dict:
             "host": "WIN-TEST-01",
             "os": "Windows",
             "source_ip": top_alert.get("source_ip", "127.0.0.1"),
-            "source_port": top_alert.get("destination_port"),
+            "source_port": top_alert.get("source_port"),
             "destination_ip": top_alert.get("destination_ip"),
             "destination_port": top_alert.get("destination_port"),
-            "user": top_alert.get("target_user", "System")
+            "user": top_alert.get("target_user", "System"),
+            "pid": top_alert.get("pid"),
+            "process_name": top_alert.get("process_name"),
+            "executable_path": top_alert.get("exe"),
+            "command_line": top_alert.get("cmdline")
         }
         event_update = {
             "event_id": str(top_alert.get("mitre_id", "4625")),
@@ -72,7 +85,7 @@ def threat_hunter_node(state: dict) -> dict:
             "channel": "Security",
             "description": top_alert.get("details", ""),
             "raw_data": top_alert,
-            "normalized_data": {}
+            "normalized_data": top_alert.copy()
         }
         threat_update = {
             "detected": True,
