@@ -81,7 +81,7 @@ def kill_malicious_process(state: IncidentState) -> str:
 ACTION_EXECUTORS = {
     "Block Source IP": block_source_ip,
     "Disable Compromised Account": disable_compromised_account,
-    "Isolate Affected Host": kill_malicious_process,  # We overloaded this earlier, let's keep it mapped
+    "Isolate Affected Host": isolate_affected_host,
     "Kill Malicious Process": kill_malicious_process,
     "Isolate Affected Host and Disable Network Share": isolate_affected_host,
     "Flag and Quarantine Email/User Session": quarantine_email_session,
